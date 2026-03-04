@@ -600,6 +600,7 @@
       flex-shrink: 0;
     }
     .comment-name { font-size: 8px; color: var(--nes-gold); }
+    .comment-stage { font-size: 7px; color: var(--nes-gray); font-family: var(--mono-font); }
     .comment-time { font-size: 7px; color: var(--nes-gray); font-family: var(--mono-font); margin-left: auto; }
     .comment-body {
       font-family: var(--mono-font);
@@ -1020,7 +1021,7 @@
     <!-- GitHub Sign-in -->
     <div class="github-signin" id="githubSignin">
       <p>🔐 SIGN IN WITH GITHUB TO SAVE & SYNC YOUR TOKENS</p>
-      <p>Your tokens are stored locally until you sign in. Sign in to save permanently and sync with Mario World Tokens!</p>
+      <p>Your tokens are saved in this browser. Sign in with GitHub to link your profile for display purposes (tokens remain local — no backend is required).</p>
       <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap">
         <button class="nes-btn btn-gold" onclick="githubSignIn()">
           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" style="margin-right:4px">
@@ -1058,7 +1059,7 @@
         <input class="nes-input" id="commentName" type="text" placeholder="YOUR NAME / HANDLE" maxlength="32" />
         <input class="nes-input" id="commentGame" type="text" placeholder="FAVORITE STAGE (optional)" maxlength="32" />
       </div>
-      <textarea class="nes-input" id="commentText" placeholder="SHARE YOUR SOLOMON'S KEY MEMORIES, TIPS, OR HIGH SCORES!&#10;Press Enter twice to submit." maxlength="500"></textarea>
+      <textarea class="nes-input" id="commentText" placeholder="SHARE YOUR SOLOMON'S KEY MEMORIES, TIPS, OR HIGH SCORES!" maxlength="500"></textarea>
       <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px">
         <span style="font-size:7px; color:var(--nes-gray); font-family:var(--mono-font)" id="charCount">0 / 500 CHARACTERS</span>
         <button class="nes-btn btn-red" onclick="submitComment()">📤 POST COMMENT</button>
@@ -1116,6 +1117,20 @@
     isGuest: false,
   };
 
+  // Persistent BroadcastChannel for bidirectional token communication
+  let tokenChannel;
+  try {
+    tokenChannel = new BroadcastChannel('solomons_key_tokens');
+    tokenChannel.onmessage = (e) => {
+      if (e.data && e.data.type === 'mario_tokens_response') {
+        showToast('Mario Tokens synced!', '🌟');
+        addLog('[SYNC] Received confirmation from Mario World Tokens!', 'sync');
+      }
+    };
+  } catch(e) {
+    tokenChannel = { postMessage: () => {}, addEventListener: () => {}, removeEventListener: () => {} };
+  }
+
   // Load from localStorage
   function loadState() {
     const saved = localStorage.getItem('solomons_key_state');
@@ -1144,11 +1159,9 @@
     updateHUD();
     showToast(`🪙 +${amount} TOKEN${amount > 1 ? 'S' : ''}!`, '🪙');
     addLog(`[EARNED] +${amount} tokens from: ${source}`, 'earn');
-    // Broadcast to other tabs/windows
+    // Broadcast to other tabs/windows via the persistent channel
     try {
-      const bc = new BroadcastChannel('solomons_key_tokens');
-      bc.postMessage({ type: 'token_earned', amount, source, total: state.tokens });
-      bc.close();
+      tokenChannel.postMessage({ type: 'token_earned', amount, source, total: state.tokens });
     } catch(e) {}
   }
 
@@ -1180,39 +1193,52 @@
     addLog(`[SYNC] Syncing ${tokens} tokens to Mario World Tokens...`, 'sync');
     // Open Mario World Tokens with token data as URL param
     const url = `https://pewpi-infinity.github.io/Mario-World-Tokens/?from=solomons-key&tokens=${tokens}&coins=${state.coins}&points=${state.points}`;
-    // Also store in localStorage for cross-site reading via same domain (won't work cross-origin)
-    // Use postMessage approach when the window is available
-    const win = window.open(url, 'mario_tokens', 'width=1200,height=800');
+    window.open(url, 'mario_tokens', 'width=1200,height=800');
     showToast(`Syncing ${tokens} tokens!`, '🌟');
-    // Reset after sync
+    // Reset only after BroadcastChannel confirmation, with a 10s fallback
+    let synced = false;
+    const onSyncConfirm = (e) => {
+      if (e.data && e.data.type === 'mario_tokens_response') {
+        synced = true;
+        resetAfterSync();
+      }
+    };
+    tokenChannel.addEventListener('message', onSyncConfirm);
     setTimeout(() => {
-      state.tokens = 0;
-      state.coins = 0;
-      state.points = 0;
-      saveState();
-      updateHUD();
-      addLog(`[SYNC] Tokens synced! Counter reset.`, 'sync');
-    }, 2000);
+      tokenChannel.removeEventListener('message', onSyncConfirm);
+      if (!synced) resetAfterSync();
+    }, 10000);
   }
 
+  function resetAfterSync() {
+    state.tokens = 0;
+    state.coins = 0;
+    state.points = 0;
+    saveState();
+    updateHUD();
+    addLog('[SYNC] Tokens synced! Counter reset.', 'sync');
+
   // ─── GITHUB SIGN-IN ──────────────────────
+  // NOTE: This is a demo sign-in flow. A real implementation would require
+  // a backend OAuth 2.0 server with CSRF state parameter validation.
   function githubSignIn() {
-    // Redirect to GitHub OAuth — for static pages, just link to GitHub
-    const repoUrl = 'https://github.com/login?return_to=' + encodeURIComponent(window.location.href);
+    const repoUrl = 'https://github.com/login';
     const popup = window.open(repoUrl, 'github_login', 'width=600,height=700');
-    showToast('Redirecting to GitHub...', '🔐');
-    // Simulate successful login after popup closes
+    showToast('Opening GitHub login...', '🔐');
+    // Poll for popup close — user must complete login on GitHub side
     const check = setInterval(() => {
       if (popup && popup.closed) {
         clearInterval(check);
-        // Simulate user (in real app would use OAuth token)
-        state.user = { name: 'Player', avatar: '🎮' };
+        // After popup closes, prompt for the player name (demo only)
+        const playerName = prompt('Enter your GitHub username to confirm sign-in (demo):') || 'Player';
+        const safe = escapeHTML(playerName.substring(0, 32));
+        state.user = { name: safe };
         document.getElementById('githubSignin').innerHTML = `
-          <p>✅ SIGNED IN AS <strong style="color:var(--nes-gold)">PLAYER</strong></p>
-          <p>Your tokens are now being saved to your GitHub account!</p>
+          <p>✅ SIGNED IN AS <strong style="color:var(--nes-gold)">${safe}</strong></p>
+          <p style="font-size:14px;color:var(--nes-gray)">Tokens saved locally. For full persistence, connect a backend OAuth service.</p>
           <button class="nes-btn btn-blue" onclick="signOut()">🚪 SIGN OUT</button>
         `;
-        addLog('[AUTH] Signed in successfully!', 'sync');
+        addLog('[AUTH] Signed in as ' + safe, 'sync');
       }
     }, 500);
   }
@@ -1232,10 +1258,11 @@
   }
 
   // ─── VIDEO PLAYER ────────────────────────
+  // Using YouTube search queries for different content types
   const VIDEO_URLS = {
-    gameplay: 'https://www.youtube.com/embed/videoseries?list=PLbQAFJvNl3KkQnLOiJSwumm7jXCQC1fJi&autoplay=1',
-    review: 'https://www.youtube.com/embed/videoseries?list=PLbQAFJvNl3KkQnLOiJSwumm7jXCQC1fJi',
-    speedrun: 'https://www.youtube.com/embed/videoseries?list=PLbQAFJvNl3KkQnLOiJSwumm7jXCQC1fJi',
+    gameplay: 'https://www.youtube.com/embed?listType=search&q=Solomon+Key+NES+gameplay',
+    review:   'https://www.youtube.com/embed?listType=search&q=Solomon+Key+NES+review+retro',
+    speedrun: 'https://www.youtube.com/embed?listType=search&q=Solomon+Key+NES+speedrun',
   };
   function loadVideo(type) {
     const frame = document.getElementById('videoFrame');
@@ -1275,7 +1302,30 @@
     hamburgerBtn.classList.toggle('open');
     mobileMenu.classList.toggle('show');
     mobileOverlay.classList.toggle('show');
-    document.body.style.overflow = mobileMenu.classList.contains('show') ? 'hidden' : '';
+    const isOpen = mobileMenu.classList.contains('show');
+    document.body.style.overflow = isOpen ? 'hidden' : '';
+    if (isOpen) {
+      // Move focus into menu for keyboard accessibility
+      const firstLink = mobileMenu.querySelector('a, button');
+      if (firstLink) firstLink.focus();
+    } else {
+      hamburgerBtn.focus();
+    }
+  });
+
+  // Focus trap inside mobile menu
+  mobileMenu.addEventListener('keydown', (e) => {
+    if (!mobileMenu.classList.contains('show')) return;
+    if (e.key === 'Escape') { closeMenu(); return; }
+    if (e.key !== 'Tab') return;
+    const focusable = Array.from(mobileMenu.querySelectorAll('a, button'));
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault(); last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault(); first.focus();
+    }
   });
 
   function closeMenu() {
@@ -1287,6 +1337,7 @@
 
   mobileMenuClose.addEventListener('click', closeMenu);
   mobileOverlay.addEventListener('click', closeMenu);
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeMenu(); });
   document.querySelectorAll('.menu-link').forEach(link => {
     link.addEventListener('click', closeMenu);
   });
@@ -1316,7 +1367,7 @@
           <div class="comment-avatar" style="background:${color}">${initials}</div>
           <div>
             <div class="comment-name">${escapeHTML(c.name)}</div>
-            <div style="font-size:7px; color:var(--nes-gray); font-family:var(--mono-font)">${escapeHTML(c.stage)}</div>
+            <div class="comment-stage">${escapeHTML(c.stage)}</div>
           </div>
           <div class="comment-time">${c.time}</div>
         </div>
@@ -1383,7 +1434,7 @@
       data.push({
         name: card.querySelector('.comment-name')?.textContent || '',
         text: card.querySelector('.comment-body')?.textContent || '',
-        stage: card.querySelector('.comment-header > div > div:last-child')?.textContent || '',
+        stage: card.querySelector('.comment-stage')?.textContent || '',
         time: card.querySelector('.comment-time')?.textContent || '',
         likes: parseInt(card.querySelector('.lc')?.textContent || '0'),
       });
@@ -1432,16 +1483,6 @@
     addLog('[TOKEN] Your tokens: ' + state.tokens + ' | Coins: ' + state.coins);
   });
 
-  // Handle incoming token sync from Mario World Tokens
-  try {
-    const bc = new BroadcastChannel('solomons_key_tokens');
-    bc.onmessage = (e) => {
-      if (e.data.type === 'mario_tokens_response') {
-        showToast('Mario Tokens synced!', '🌟');
-        addLog('[SYNC] Received confirmation from Mario World Tokens!', 'sync');
-      }
-    };
-  } catch(e) {}
 </script>
 
 </body>
