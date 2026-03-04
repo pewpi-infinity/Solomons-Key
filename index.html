@@ -1,0 +1,1489 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Solomon's Key — NES Classic</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323:wght@400&display=swap" rel="stylesheet" />
+  <style>
+    /* ===== CSS RESET & BASE ===== */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --nes-red:    #e60012;
+      --nes-dark:   #1a0a00;
+      --nes-gold:   #f5c518;
+      --nes-blue:   #0066cc;
+      --nes-sky:    #1a9edb;
+      --nes-green:  #2ecc40;
+      --nes-gray:   #a8a8a8;
+      --nes-bg:     #0d0d1a;
+      --nes-panel:  #1b1b35;
+      --nes-border: #f5c518;
+      --nes-white:  #f0f0f0;
+      --pixel-font: 'Press Start 2P', monospace;
+      --mono-font:  'VT323', monospace;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: var(--pixel-font);
+      background: var(--nes-bg);
+      color: var(--nes-white);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ===== SCANLINE OVERLAY ===== */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0,0,0,0.18) 2px,
+        rgba(0,0,0,0.18) 4px
+      );
+      pointer-events: none;
+      z-index: 9999;
+    }
+
+    /* ===== STAR BACKGROUND ===== */
+    .stars {
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(1px 1px at 10% 15%, #fff 0%, transparent 100%),
+        radial-gradient(1px 1px at 30% 40%, #fff 0%, transparent 100%),
+        radial-gradient(1px 1px at 50% 10%, #fff 0%, transparent 100%),
+        radial-gradient(1px 1px at 70% 60%, #fff 0%, transparent 100%),
+        radial-gradient(1px 1px at 90% 25%, #fff 0%, transparent 100%),
+        radial-gradient(1px 1px at 15% 70%, #fff 0%, transparent 100%),
+        radial-gradient(1px 1px at 45% 85%, #fff 0%, transparent 100%),
+        radial-gradient(1px 1px at 80% 90%, #fff 0%, transparent 100%),
+        radial-gradient(1px 1px at 25% 55%, #fff 0%, transparent 100%),
+        radial-gradient(1px 1px at 60% 30%, #fff 0%, transparent 100%),
+        radial-gradient(2px 2px at 35% 20%, rgba(245,197,24,0.7) 0%, transparent 100%),
+        radial-gradient(2px 2px at 75% 45%, rgba(245,197,24,0.7) 0%, transparent 100%),
+        radial-gradient(2px 2px at 55% 75%, rgba(245,197,24,0.5) 0%, transparent 100%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ===== LAYOUT ===== */
+    .page-wrap { position: relative; z-index: 1; }
+
+    /* ===== TOP MARQUEE BANNER ===== */
+    .marquee-banner {
+      background: var(--nes-red);
+      border-bottom: 4px solid var(--nes-gold);
+      overflow: hidden;
+      white-space: nowrap;
+      padding: 8px 0;
+    }
+    .marquee-inner {
+      display: inline-block;
+      animation: marquee 20s linear infinite;
+      font-size: 11px;
+      color: var(--nes-gold);
+      letter-spacing: 2px;
+    }
+    @keyframes marquee {
+      from { transform: translateX(100vw); }
+      to   { transform: translateX(-100%); }
+    }
+
+    /* ===== NAVBAR ===== */
+    nav {
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+      background: linear-gradient(180deg, #0d0d1a 0%, #1b1b35 100%);
+      border-bottom: 4px solid var(--nes-gold);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 20px;
+      box-shadow: 0 4px 20px rgba(245,197,24,0.3);
+    }
+    .nav-logo {
+      font-size: 14px;
+      color: var(--nes-gold);
+      text-shadow: 2px 2px var(--nes-red), 0 0 20px rgba(245,197,24,0.7);
+      letter-spacing: 1px;
+    }
+    .nav-logo span { color: var(--nes-sky); }
+
+    /* Desktop nav links */
+    .nav-links {
+      display: flex;
+      gap: 6px;
+      list-style: none;
+      align-items: center;
+    }
+    .nav-links a {
+      font-size: 8px;
+      color: var(--nes-white);
+      text-decoration: none;
+      padding: 6px 10px;
+      border: 2px solid transparent;
+      border-radius: 2px;
+      transition: all 0.2s;
+    }
+    .nav-links a:hover {
+      color: var(--nes-gold);
+      border-color: var(--nes-gold);
+      background: rgba(245,197,24,0.1);
+    }
+
+    /* Hamburger */
+    .hamburger {
+      display: none;
+      flex-direction: column;
+      gap: 5px;
+      cursor: pointer;
+      background: none;
+      border: none;
+      padding: 4px;
+    }
+    .hamburger span {
+      display: block;
+      width: 28px;
+      height: 3px;
+      background: var(--nes-gold);
+      border-radius: 2px;
+      transition: all 0.3s;
+    }
+    .hamburger.open span:nth-child(1) { transform: translateY(8px) rotate(45deg); }
+    .hamburger.open span:nth-child(2) { opacity: 0; }
+    .hamburger.open span:nth-child(3) { transform: translateY(-8px) rotate(-45deg); }
+
+    /* Mobile menu */
+    .mobile-menu {
+      display: none;
+      position: fixed;
+      top: 0;
+      right: -100%;
+      width: min(300px, 85vw);
+      height: 100vh;
+      background: linear-gradient(180deg, #0d0d1a 0%, #1b1b35 100%);
+      border-left: 4px solid var(--nes-gold);
+      z-index: 2000;
+      padding: 80px 20px 30px;
+      transition: right 0.35s ease;
+      box-shadow: -8px 0 40px rgba(0,0,0,0.8);
+      overflow-y: auto;
+    }
+    .mobile-menu.show { right: 0; }
+    .mobile-menu ul { list-style: none; display: flex; flex-direction: column; gap: 4px; }
+    .mobile-menu a {
+      display: block;
+      font-size: 9px;
+      color: var(--nes-white);
+      text-decoration: none;
+      padding: 14px 10px;
+      border-bottom: 1px solid rgba(245,197,24,0.2);
+      transition: all 0.2s;
+    }
+    .mobile-menu a:hover { color: var(--nes-gold); padding-left: 20px; }
+    .mobile-menu-close {
+      position: absolute;
+      top: 18px;
+      right: 18px;
+      background: none;
+      border: 2px solid var(--nes-red);
+      color: var(--nes-red);
+      font-family: var(--pixel-font);
+      font-size: 8px;
+      padding: 6px 10px;
+      cursor: pointer;
+    }
+    .mobile-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.6);
+      z-index: 1999;
+    }
+    .mobile-overlay.show { display: block; }
+
+    @media (max-width: 768px) {
+      .nav-links { display: none; }
+      .hamburger { display: flex; }
+      .mobile-menu { display: block; }
+    }
+
+    /* ===== HERO HEADER ===== */
+    .hero {
+      text-align: center;
+      padding: 60px 20px 40px;
+      position: relative;
+    }
+    .hero-badge {
+      display: inline-block;
+      background: var(--nes-red);
+      color: var(--nes-white);
+      font-size: 9px;
+      padding: 6px 14px;
+      border: 2px solid var(--nes-gold);
+      margin-bottom: 20px;
+      letter-spacing: 3px;
+      animation: blink 1.2s step-end infinite;
+    }
+    @keyframes blink { 50% { opacity: 0.4; } }
+
+    .hero-title {
+      font-size: clamp(22px, 5vw, 52px);
+      color: var(--nes-gold);
+      text-shadow:
+        4px 4px 0 var(--nes-red),
+        -2px -2px 0 rgba(0,0,0,0.8),
+        0 0 40px rgba(245,197,24,0.5);
+      line-height: 1.3;
+      margin-bottom: 12px;
+    }
+    .hero-sub {
+      font-size: clamp(8px, 1.5vw, 12px);
+      color: var(--nes-sky);
+      letter-spacing: 2px;
+      margin-bottom: 30px;
+      font-family: var(--mono-font);
+    }
+
+    /* Pixel Solomon figure */
+    .pixel-art {
+      display: inline-block;
+      width: 80px;
+      height: 80px;
+      background:
+        /* head */
+        linear-gradient(var(--nes-gold) 0 10px, transparent 10px),
+        /* body */
+        linear-gradient(transparent 10px, var(--nes-sky) 10px 30px, transparent 30px),
+        /* legs */
+        linear-gradient(transparent 30px, var(--nes-blue) 30px 40px);
+      image-rendering: pixelated;
+      margin: 20px auto;
+      box-shadow: 0 0 30px rgba(245,197,24,0.4);
+    }
+
+    /* ===== NES SECTION WRAPPER ===== */
+    .section {
+      max-width: 1100px;
+      margin: 0 auto 60px;
+      padding: 0 20px;
+    }
+    .section-title {
+      font-size: clamp(12px, 2.5vw, 18px);
+      color: var(--nes-gold);
+      text-shadow: 2px 2px var(--nes-red);
+      margin-bottom: 24px;
+      padding-bottom: 10px;
+      border-bottom: 3px solid var(--nes-gold);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .section-title .icon { font-size: 1.2em; }
+
+    /* NES Panel / Card */
+    .nes-panel {
+      background: var(--nes-panel);
+      border: 4px solid var(--nes-gold);
+      border-radius: 4px;
+      padding: 24px;
+      box-shadow:
+        inset 0 0 20px rgba(0,0,0,0.5),
+        0 0 30px rgba(245,197,24,0.15),
+        8px 8px 0 rgba(0,0,0,0.5);
+      position: relative;
+    }
+    .nes-panel::before {
+      content: '';
+      position: absolute;
+      top: 3px; left: 3px; right: 3px; bottom: 3px;
+      border: 1px solid rgba(245,197,24,0.2);
+      pointer-events: none;
+      border-radius: 2px;
+    }
+
+    /* ===== EMULATOR SECTION ===== */
+    #emulator .nes-panel { padding: 16px; }
+    .emulator-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .emulator-label {
+      font-size: 10px;
+      color: var(--nes-green);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .led { width: 10px; height: 10px; background: var(--nes-green); border-radius: 50%; animation: pulse 1s ease-in-out infinite; }
+    @keyframes pulse { 0%,100% { opacity:1; box-shadow: 0 0 8px var(--nes-green); } 50% { opacity: 0.5; box-shadow: none; } }
+
+    .emulator-frame-wrap {
+      position: relative;
+      width: 100%;
+      padding-bottom: 75%;
+      background: #000;
+      border: 3px solid #333;
+      overflow: hidden;
+    }
+    .emulator-frame-wrap iframe {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      border: none;
+    }
+    .emulator-tip {
+      font-size: 8px;
+      color: var(--nes-gray);
+      font-family: var(--mono-font);
+      margin-top: 12px;
+      line-height: 1.6;
+    }
+
+    /* Token HUD */
+    .token-hud {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+      gap: 12px;
+      margin-top: 16px;
+    }
+    .hud-card {
+      background: rgba(0,0,0,0.5);
+      border: 2px solid var(--nes-gold);
+      padding: 12px;
+      text-align: center;
+    }
+    .hud-label { font-size: 7px; color: var(--nes-gray); margin-bottom: 6px; letter-spacing: 1px; }
+    .hud-value { font-size: 20px; color: var(--nes-gold); font-family: var(--mono-font); }
+    .hud-sub { font-size: 7px; color: var(--nes-sky); margin-top: 4px; }
+
+    /* ===== BUTTONS ===== */
+    .nes-btn {
+      font-family: var(--pixel-font);
+      font-size: 8px;
+      padding: 10px 18px;
+      border: none;
+      cursor: pointer;
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      text-decoration: none;
+      letter-spacing: 1px;
+      transition: transform 0.1s, box-shadow 0.1s;
+    }
+    .nes-btn:active { transform: translate(3px, 3px); box-shadow: none !important; }
+
+    .btn-red {
+      background: var(--nes-red);
+      color: #fff;
+      box-shadow: 4px 4px 0 #8b0000, 6px 6px 0 rgba(0,0,0,0.4);
+    }
+    .btn-gold {
+      background: var(--nes-gold);
+      color: var(--nes-dark);
+      box-shadow: 4px 4px 0 #a07900, 6px 6px 0 rgba(0,0,0,0.4);
+    }
+    .btn-blue {
+      background: var(--nes-blue);
+      color: #fff;
+      box-shadow: 4px 4px 0 #003d7a, 6px 6px 0 rgba(0,0,0,0.4);
+    }
+    .btn-green {
+      background: var(--nes-green);
+      color: var(--nes-dark);
+      box-shadow: 4px 4px 0 #1a7a26, 6px 6px 0 rgba(0,0,0,0.4);
+    }
+
+    /* ===== HISTORY / INFO ===== */
+    .history-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    @media (max-width: 640px) { .history-grid { grid-template-columns: 1fr; } }
+
+    .info-card {
+      background: rgba(0,0,0,0.4);
+      border: 2px solid rgba(245,197,24,0.4);
+      border-radius: 4px;
+      padding: 18px;
+    }
+    .info-card h3 {
+      font-size: 9px;
+      color: var(--nes-sky);
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .info-card p, .info-card li {
+      font-family: var(--mono-font);
+      font-size: 16px;
+      color: var(--nes-white);
+      line-height: 1.6;
+      list-style: none;
+      margin-bottom: 6px;
+    }
+    .info-card li::before { content: '▶ '; color: var(--nes-gold); font-size: 12px; }
+
+    .history-text {
+      font-family: var(--mono-font);
+      font-size: 18px;
+      color: var(--nes-white);
+      line-height: 1.7;
+    }
+    .history-text p { margin-bottom: 16px; }
+    .history-text strong { color: var(--nes-gold); }
+
+    /* Timeline */
+    .timeline { position: relative; padding-left: 30px; }
+    .timeline::before {
+      content: '';
+      position: absolute;
+      left: 8px; top: 0; bottom: 0;
+      width: 2px;
+      background: linear-gradient(180deg, var(--nes-gold), var(--nes-sky));
+    }
+    .tl-item {
+      position: relative;
+      margin-bottom: 24px;
+      font-family: var(--mono-font);
+      font-size: 16px;
+    }
+    .tl-item::before {
+      content: '◆';
+      position: absolute;
+      left: -26px;
+      color: var(--nes-gold);
+      font-size: 12px;
+      top: 2px;
+    }
+    .tl-year { font-family: var(--pixel-font); font-size: 8px; color: var(--nes-gold); margin-bottom: 4px; }
+    .tl-desc { color: var(--nes-white); line-height: 1.6; }
+
+    /* ===== VIDEO SECTION ===== */
+    .video-wrap {
+      position: relative;
+      width: 100%;
+      padding-bottom: 56.25%;
+      background: #000;
+      border: 3px solid var(--nes-gold);
+      overflow: hidden;
+    }
+    .video-wrap iframe {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      border: none;
+    }
+
+    /* ===== TOKEN SYSTEM ===== */
+    .token-earn-panel {
+      background: linear-gradient(135deg, rgba(230,0,18,0.15) 0%, rgba(0,102,204,0.15) 100%);
+      border: 3px solid var(--nes-gold);
+      padding: 24px;
+    }
+    .token-earn-title {
+      font-size: 11px;
+      color: var(--nes-gold);
+      margin-bottom: 20px;
+      text-align: center;
+    }
+    .coin-animation {
+      display: inline-block;
+      animation: spin3d 1.5s linear infinite;
+      font-size: 32px;
+    }
+    @keyframes spin3d { 0% { transform: rotateY(0deg); } 100% { transform: rotateY(360deg); } }
+
+    .token-actions { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin-top: 20px; }
+
+    .github-signin {
+      background: linear-gradient(135deg, #24292e 0%, #1a1f24 100%);
+      border: 2px solid var(--nes-gold);
+      padding: 20px;
+      text-align: center;
+      margin-top: 20px;
+    }
+    .github-signin p {
+      font-family: var(--mono-font);
+      font-size: 18px;
+      color: var(--nes-gray);
+      margin-bottom: 14px;
+    }
+
+    .token-log {
+      background: rgba(0,0,0,0.6);
+      border: 2px solid rgba(245,197,24,0.3);
+      padding: 16px;
+      max-height: 200px;
+      overflow-y: auto;
+      font-family: var(--mono-font);
+      font-size: 15px;
+      line-height: 1.8;
+      margin-top: 16px;
+    }
+    .token-log::-webkit-scrollbar { width: 6px; }
+    .token-log::-webkit-scrollbar-track { background: #000; }
+    .token-log::-webkit-scrollbar-thumb { background: var(--nes-gold); }
+    .log-entry { color: var(--nes-green); }
+    .log-entry.earn { color: var(--nes-gold); }
+    .log-entry.sync { color: var(--nes-sky); }
+
+    .token-sync-banner {
+      background: linear-gradient(90deg, var(--nes-blue), #0099ff);
+      border: 2px solid #fff;
+      padding: 14px 20px;
+      text-align: center;
+      margin-top: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+    .token-sync-banner p { font-size: 9px; color: #fff; margin: 0; }
+
+    /* ===== COMMENT SECTION ===== */
+    .comment-form { display: flex; flex-direction: column; gap: 14px; margin-bottom: 30px; }
+    .nes-input {
+      font-family: var(--mono-font);
+      font-size: 18px;
+      background: rgba(0,0,0,0.6);
+      border: 2px solid var(--nes-gold);
+      color: var(--nes-white);
+      padding: 10px 14px;
+      outline: none;
+      width: 100%;
+      border-radius: 2px;
+    }
+    .nes-input:focus { border-color: var(--nes-sky); box-shadow: 0 0 10px rgba(26,158,219,0.4); }
+    .nes-input::placeholder { color: var(--nes-gray); }
+    textarea.nes-input { resize: vertical; min-height: 90px; }
+
+    .comment-list { display: flex; flex-direction: column; gap: 14px; }
+    .comment-card {
+      background: rgba(0,0,0,0.4);
+      border: 2px solid rgba(245,197,24,0.3);
+      padding: 16px;
+    }
+    .comment-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+    .comment-avatar {
+      width: 32px; height: 32px;
+      background: var(--nes-red);
+      border: 2px solid var(--nes-gold);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      flex-shrink: 0;
+    }
+    .comment-name { font-size: 8px; color: var(--nes-gold); }
+    .comment-stage { font-size: 7px; color: var(--nes-gray); font-family: var(--mono-font); }
+    .comment-time { font-size: 7px; color: var(--nes-gray); font-family: var(--mono-font); margin-left: auto; }
+    .comment-body {
+      font-family: var(--mono-font);
+      font-size: 17px;
+      color: var(--nes-white);
+      line-height: 1.6;
+    }
+    .comment-likes {
+      display: flex;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .like-btn {
+      font-family: var(--pixel-font);
+      font-size: 7px;
+      background: transparent;
+      border: 1px solid rgba(245,197,24,0.3);
+      color: var(--nes-gray);
+      padding: 4px 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .like-btn:hover { border-color: var(--nes-gold); color: var(--nes-gold); }
+    .like-btn.liked { color: var(--nes-gold); border-color: var(--nes-gold); }
+
+    /* ===== FOOTER ===== */
+    footer {
+      background: #000;
+      border-top: 4px solid var(--nes-gold);
+      padding: 30px 20px;
+      text-align: center;
+    }
+    .footer-logo {
+      font-size: 16px;
+      color: var(--nes-gold);
+      text-shadow: 2px 2px var(--nes-red);
+      margin-bottom: 12px;
+    }
+    .footer-links {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 6px;
+      margin-bottom: 16px;
+    }
+    .footer-links a {
+      font-size: 7px;
+      color: var(--nes-sky);
+      text-decoration: none;
+      padding: 4px 8px;
+      border: 1px solid rgba(26,158,219,0.3);
+    }
+    .footer-links a:hover { color: var(--nes-gold); border-color: var(--nes-gold); }
+    .footer-copy { font-size: 7px; color: var(--nes-gray); font-family: var(--mono-font); }
+
+    /* ===== TOAST NOTIFICATION ===== */
+    .toast {
+      position: fixed;
+      bottom: 30px;
+      right: 20px;
+      background: var(--nes-panel);
+      border: 3px solid var(--nes-gold);
+      color: var(--nes-gold);
+      font-size: 8px;
+      padding: 12px 18px;
+      z-index: 9000;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transform: translateX(200%);
+      transition: transform 0.4s;
+      box-shadow: 0 0 30px rgba(245,197,24,0.3);
+      max-width: 280px;
+    }
+    .toast.show { transform: translateX(0); }
+
+    /* ===== DIVIDER ===== */
+    .pixel-divider {
+      text-align: center;
+      color: var(--nes-gold);
+      font-size: 14px;
+      letter-spacing: 6px;
+      margin: 40px 0;
+      opacity: 0.5;
+    }
+
+    /* ===== RESPONSIVE ===== */
+    @media (max-width: 480px) {
+      .nes-panel { padding: 14px; }
+      .history-text { font-size: 16px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="stars"></div>
+<div class="page-wrap">
+
+<!-- MARQUEE -->
+<div class="marquee-banner">
+  <div class="marquee-inner">
+    ★ SOLOMON'S KEY — NES CLASSIC 1986 ★ TECMO ARCADE MASTERPIECE ★ EARN TOKENS WHILE YOU PLAY ★ POWERED BY MARIO WORLD TOKENS ★ INSERT COIN TO CONTINUE ★ PRESS START ★
+  </div>
+</div>
+
+<!-- NAVBAR -->
+<nav>
+  <div class="nav-logo">🔑 <span>SOLOMON'S</span> KEY</div>
+  <ul class="nav-links">
+    <li><a href="#emulator">🕹️ PLAY</a></li>
+    <li><a href="#history">📜 HISTORY</a></li>
+    <li><a href="#video">🎬 VIDEO</a></li>
+    <li><a href="#tokens">🪙 TOKENS</a></li>
+    <li><a href="#comments">💬 CHAT</a></li>
+    <li><a href="https://pewpi-infinity.github.io/Mario-World-Tokens/" target="_blank" rel="noopener" style="color:var(--nes-gold);border-color:var(--nes-gold)">🌟 MARIO TOKENS</a></li>
+  </ul>
+  <button class="hamburger" id="hamburgerBtn" aria-label="Open menu">
+    <span></span><span></span><span></span>
+  </button>
+</nav>
+
+<!-- MOBILE MENU OVERLAY -->
+<div class="mobile-overlay" id="mobileOverlay"></div>
+
+<!-- MOBILE MENU -->
+<div class="mobile-menu" id="mobileMenu">
+  <button class="mobile-menu-close" id="mobileMenuClose">✕ CLOSE</button>
+  <ul>
+    <li><a href="#emulator" class="menu-link">🕹️ PLAY EMULATOR</a></li>
+    <li><a href="#history" class="menu-link">📜 GAME HISTORY</a></li>
+    <li><a href="#video" class="menu-link">🎬 VIDEO PLAYER</a></li>
+    <li><a href="#tokens" class="menu-link">🪙 TOKEN SYSTEM</a></li>
+    <li><a href="#comments" class="menu-link">💬 COMMENT SECTION</a></li>
+    <li><a href="https://pewpi-infinity.github.io/Mario-World-Tokens/" target="_blank" rel="noopener">🌟 MARIO WORLD TOKENS</a></li>
+    <li><a href="https://github.com/pewpi-infinity/Solomons-Key" target="_blank" rel="noopener">⚙️ GITHUB REPO</a></li>
+  </ul>
+  <div style="margin-top:30px; padding-top:20px; border-top:1px solid rgba(245,197,24,0.3)">
+    <p style="font-size:8px; color:var(--nes-gray); font-family:var(--mono-font); line-height:1.6">
+      Part of the MARIO WORLD TOKENS ecosystem.<br/>Earn tokens by playing — every coin counts!
+    </p>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     HERO
+══════════════════════════════════════ -->
+<section class="hero">
+  <div class="hero-badge">★ NINTENDO NES CLASSIC ★</div>
+  <h1 class="hero-title">SOLOMON'S KEY</h1>
+  <p class="hero-sub">THE LEGENDARY 1986 TECMO ARCADE MASTERPIECE</p>
+  <div style="display:flex; justify-content:center; gap:12px; flex-wrap:wrap; margin-top:20px">
+    <a href="#emulator" class="nes-btn btn-red">▶ PLAY NOW</a>
+    <a href="#tokens" class="nes-btn btn-gold">🪙 EARN TOKENS</a>
+    <a href="#history" class="nes-btn btn-blue">📜 HISTORY</a>
+  </div>
+</section>
+
+<div class="pixel-divider">◆ ◇ ◆ ◇ ◆ ◇ ◆ ◇ ◆</div>
+
+<!-- ══════════════════════════════════════
+     QUICK INFO CARDS
+══════════════════════════════════════ -->
+<div class="section">
+  <div class="history-grid">
+    <div class="info-card">
+      <h3>🎮 GAME DETAILS</h3>
+      <ul>
+        <li>Title: Solomon's Key</li>
+        <li>Developer: Tecmo</li>
+        <li>Year: 1986</li>
+        <li>Platform: NES / Arcade / C64</li>
+        <li>Genre: Action Puzzle</li>
+        <li>Players: 1</li>
+      </ul>
+    </div>
+    <div class="info-card">
+      <h3>⚔️ GAMEPLAY</h3>
+      <ul>
+        <li>Create &amp; destroy blocks</li>
+        <li>50 puzzle rooms</li>
+        <li>Collect the Solomon Seal</li>
+        <li>Defeat demons &amp; monsters</li>
+        <li>Hidden rooms &amp; secrets</li>
+        <li>Magic spells system</li>
+      </ul>
+    </div>
+    <div class="info-card">
+      <h3>🏆 LEGACY</h3>
+      <ul>
+        <li>Arcade hit in Japan &amp; USA</li>
+        <li>Influenced puzzle-platformers</li>
+        <li>Sequel: Solomon's Key 2</li>
+        <li>Fire 'N Ice (NES successor)</li>
+        <li>Re-released on Virtual Console</li>
+        <li>Classic NES Series</li>
+      </ul>
+    </div>
+    <div class="info-card">
+      <h3>🪙 TOKEN REWARDS</h3>
+      <ul>
+        <li>Collect coin = +1 Token</li>
+        <li>Complete stage = +10 Tokens</li>
+        <li>Find secret = +25 Tokens</li>
+        <li>Boss defeat = +50 Tokens</li>
+        <li>Full clear = +200 Tokens</li>
+        <li>Sync to Mario Tokens!</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     EMULATOR
+══════════════════════════════════════ -->
+<div class="section" id="emulator">
+  <h2 class="section-title"><span class="icon">🕹️</span> PLAY SOLOMON'S KEY — NES EMULATOR</h2>
+  <div class="nes-panel">
+    <div class="emulator-header">
+      <div class="emulator-label">
+        <span class="led"></span>
+        LIVE NES EMULATOR — RETROGAMES.CC
+      </div>
+      <div style="font-size:8px; color:var(--nes-gray)">★ SAME EMULATOR AS MARIO WORLD TOKENS ★</div>
+    </div>
+
+    <div class="emulator-frame-wrap">
+      <iframe
+        src="https://www.retrogames.cc/embed/20700-solomon-s-key-usa.html"
+        title="Solomon's Key NES Emulator"
+        allowfullscreen
+        allow="gamepad *"
+        scrolling="no"
+      ></iframe>
+    </div>
+
+    <p class="emulator-tip">
+      🎮 CONTROLS: Arrow Keys = Move &nbsp;|&nbsp; Z or A = Cast Block &nbsp;|&nbsp; X or B = Destroy Block &nbsp;|&nbsp; Enter = Start/Pause &nbsp;|&nbsp; Shift = Select<br/>
+      💡 TIP: Collect the scroll &amp; fairy to find hidden rooms! Every fairy = bonus tokens!
+    </p>
+
+    <!-- Token HUD -->
+    <div class="token-hud">
+      <div class="hud-card">
+        <div class="hud-label">🪙 COINS</div>
+        <div class="hud-value" id="hudCoins">0</div>
+        <div class="hud-sub">COLLECTED</div>
+      </div>
+      <div class="hud-card">
+        <div class="hud-label">⭐ POINTS</div>
+        <div class="hud-value" id="hudPoints">0</div>
+        <div class="hud-sub">TOTAL SCORE</div>
+      </div>
+      <div class="hud-card">
+        <div class="hud-label">🏅 TOKENS</div>
+        <div class="hud-value" id="hudTokens">0</div>
+        <div class="hud-sub">MARIO TOKENS</div>
+      </div>
+      <div class="hud-card">
+        <div class="hud-label">🌟 STAGE</div>
+        <div class="hud-value" id="hudStage">1</div>
+        <div class="hud-sub">CURRENT LEVEL</div>
+      </div>
+    </div>
+
+    <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:16px">
+      <button class="nes-btn btn-gold" onclick="simulateCoin()">🪙 +COIN</button>
+      <button class="nes-btn btn-green" onclick="simulateStage()">✅ STAGE CLEAR</button>
+      <button class="nes-btn btn-blue" onclick="simulateSecret()">🔮 FOUND SECRET</button>
+      <button class="nes-btn btn-red" onclick="syncTokensToMario()">🌟 SYNC TO MARIO TOKENS</button>
+    </div>
+  </div>
+</div>
+
+<div class="pixel-divider">◆ ◇ ◆ ◇ ◆ ◇ ◆ ◇ ◆</div>
+
+<!-- ══════════════════════════════════════
+     HISTORY
+══════════════════════════════════════ -->
+<div class="section" id="history">
+  <h2 class="section-title"><span class="icon">📜</span> THE HISTORY OF SOLOMON'S KEY</h2>
+
+  <div class="nes-panel">
+    <div class="history-text">
+      <p>
+        <strong>Solomon's Key</strong> (ソロモンの鍵, Soromon no Kagi) is a classic action-puzzle video game developed and published by <strong>Tecmo</strong> (formerly Tehkan), originally released as an <strong>arcade cabinet in 1986</strong>. The game was designed by <strong>Michitaka Tsuruta</strong> and quickly became one of the most beloved puzzle-action games of the NES era.
+      </p>
+      <p>
+        Players control <strong>Dana</strong>, a young wizard trapped in an ancient dungeon filled with deadly demons and magical creatures. Armed with the power of sorcery, Dana can <strong>create and destroy stone blocks</strong> at will — a mechanic that was revolutionary for its time. The goal of each of the <strong>50 rooms</strong> is to locate the Key of Solomon and reach the exit door.
+      </p>
+      <p>
+        The arcade version was ported to numerous platforms including the <strong>Nintendo Entertainment System (NES)</strong>, Commodore 64, MSX, Amstrad CPC, ZX Spectrum, Atari ST, Amiga, and the PC Engine. The NES version, released in 1987 in North America, is considered one of the most polished ports and remains the definitive way to experience the game.
+      </p>
+      <p>
+        What made Solomon's Key unique was its blend of <strong>real-time action with deep puzzle mechanics</strong>. Players had to think multiple steps ahead — every block placed or destroyed could mean the difference between escape and doom. Hidden rooms containing <strong>fairies and bonus items</strong> added replay value and rewarded careful exploration.
+      </p>
+      <p>
+        The game spawned a spiritual successor on the NES called <strong>Fire 'N Ice (Solomon's Key 2)</strong> in 1992, which built upon the original's mechanics with even more complex puzzles and refined gameplay. Solomon's Key is widely regarded as a foundational title that influenced countless puzzle-platformers that followed.
+      </p>
+    </div>
+
+    <div class="pixel-divider" style="margin:24px 0">◆ ◇ ◆</div>
+
+    <!-- Timeline -->
+    <h3 style="font-size:10px; color:var(--nes-sky); margin-bottom:20px">📅 TIMELINE</h3>
+    <div class="timeline">
+      <div class="tl-item">
+        <div class="tl-year">1983</div>
+        <div class="tl-desc">Tecmo (then Tehkan) founded in Japan, begins developing arcade games.</div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-year">1986</div>
+        <div class="tl-desc">Solomon's Key released as an arcade cabinet. Designed by Michitaka Tsuruta. Instant success in Japanese arcades — fast, challenging, deeply satisfying.</div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-year">1987</div>
+        <div class="tl-desc">NES port published by Tecmo in North America. Ported to Commodore 64, MSX, Atari ST, ZX Spectrum, and Amstrad CPC. Becomes a top-selling NES title.</div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-year">1988–1990</div>
+        <div class="tl-desc">Amiga and PC Engine ports released. The game cements its status as a cross-platform classic.</div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-year">1992</div>
+        <div class="tl-desc">Fire 'N Ice (Solomon's Key 2) released on NES — a refined sequel with ice-based mechanics.</div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-year">2007</div>
+        <div class="tl-desc">Solomon's Key re-released on Wii Virtual Console, introducing the classic to a new generation.</div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-year">2018</div>
+        <div class="tl-desc">Available via NES Online on Nintendo Switch. The legend lives on.</div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-year">Today</div>
+        <div class="tl-desc">Solomon's Key remains one of the most beloved NES titles — playable right here with token rewards!</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="pixel-divider">◆ ◇ ◆ ◇ ◆ ◇ ◆ ◇ ◆</div>
+
+<!-- ══════════════════════════════════════
+     VIDEO
+══════════════════════════════════════ -->
+<div class="section" id="video">
+  <h2 class="section-title"><span class="icon">🎬</span> VIDEO PLAYER</h2>
+  <div class="nes-panel">
+    <div style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:16px">
+      <button class="nes-btn btn-red" onclick="loadVideo('gameplay')">▶ GAMEPLAY</button>
+      <button class="nes-btn btn-blue" onclick="loadVideo('review')">📺 REVIEW</button>
+      <button class="nes-btn btn-gold" onclick="loadVideo('speedrun')">⚡ SPEEDRUN</button>
+    </div>
+    <div class="video-wrap" id="videoContainer">
+      <iframe
+        id="videoFrame"
+        src="https://www.youtube.com/embed/videoseries?list=PLbQAFJvNl3KkQnLOiJSwumm7jXCQC1fJi"
+        title="Solomon's Key Video Player"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+        allowfullscreen
+      ></iframe>
+    </div>
+    <p style="font-family:var(--mono-font); font-size:15px; color:var(--nes-gray); margin-top:12px; line-height:1.6">
+      ▶ Watch Solomon's Key gameplay videos, reviews, speedruns, and classic NES footage. Select a video type above to explore different content.
+    </p>
+  </div>
+</div>
+
+<div class="pixel-divider">◆ ◇ ◆ ◇ ◆ ◇ ◆ ◇ ◆</div>
+
+<!-- ══════════════════════════════════════
+     TOKEN SYSTEM
+══════════════════════════════════════ -->
+<div class="section" id="tokens">
+  <h2 class="section-title"><span class="icon">🪙</span> MARIO WORLD TOKEN SYSTEM</h2>
+
+  <div class="nes-panel token-earn-panel">
+    <div style="text-align:center; margin-bottom:24px">
+      <div class="coin-animation">🪙</div>
+      <h3 class="token-earn-title" style="margin-top:10px">EARN TOKENS WHILE YOU PLAY!</h3>
+      <p style="font-family:var(--mono-font); font-size:17px; color:var(--nes-white); line-height:1.7; max-width:600px; margin:0 auto">
+        Every <strong style="color:var(--nes-gold)">coin collected</strong>, every <strong style="color:var(--nes-sky)">stage cleared</strong>, and every <strong style="color:var(--nes-green)">secret discovered</strong> while playing Solomon's Key earns you <strong style="color:var(--nes-gold)">Mario World Tokens</strong>! Tokens are synced to the <a href="https://pewpi-infinity.github.io/Mario-World-Tokens/" target="_blank" rel="noopener" style="color:var(--nes-gold)">Mario World Tokens ecosystem</a>.
+      </p>
+    </div>
+
+    <!-- Token Earn Actions -->
+    <div class="history-grid" style="margin-bottom:20px">
+      <div class="info-card" style="text-align:center">
+        <h3 style="justify-content:center">🪙 COIN COLLECTED</h3>
+        <p style="font-size:32px; color:var(--nes-gold); font-family:var(--mono-font)">+1 TOKEN</p>
+        <button class="nes-btn btn-gold" onclick="simulateCoin()" style="margin-top:10px">COLLECT COIN</button>
+      </div>
+      <div class="info-card" style="text-align:center">
+        <h3 style="justify-content:center">✅ STAGE CLEAR</h3>
+        <p style="font-size:32px; color:var(--nes-green); font-family:var(--mono-font)">+10 TOKENS</p>
+        <button class="nes-btn btn-green" onclick="simulateStage()" style="margin-top:10px">CLEAR STAGE</button>
+      </div>
+      <div class="info-card" style="text-align:center">
+        <h3 style="justify-content:center">🔮 SECRET FOUND</h3>
+        <p style="font-size:32px; color:var(--nes-sky); font-family:var(--mono-font)">+25 TOKENS</p>
+        <button class="nes-btn btn-blue" onclick="simulateSecret()" style="margin-top:10px">FIND SECRET</button>
+      </div>
+      <div class="info-card" style="text-align:center">
+        <h3 style="justify-content:center">👾 BOSS DEFEAT</h3>
+        <p style="font-size:32px; color:var(--nes-red); font-family:var(--mono-font)">+50 TOKENS</p>
+        <button class="nes-btn btn-red" onclick="simulateBoss()" style="margin-top:10px">DEFEAT BOSS</button>
+      </div>
+    </div>
+
+    <!-- Activity Log -->
+    <h3 style="font-size:9px; color:var(--nes-sky); margin-bottom:8px">📋 TOKEN ACTIVITY LOG</h3>
+    <div class="token-log" id="tokenLog">
+      <div class="log-entry">▶ SYSTEM READY — START PLAYING TO EARN TOKENS</div>
+      <div class="log-entry">▶ SIGN IN WITH GITHUB TO SAVE YOUR TOKENS</div>
+    </div>
+
+    <!-- GitHub Sign-in -->
+    <div class="github-signin" id="githubSignin">
+      <p>🔐 SIGN IN WITH GITHUB TO SAVE & SYNC YOUR TOKENS</p>
+      <p>Your tokens are saved in this browser. Sign in with GitHub to link your profile for display purposes (tokens remain local — no backend is required).</p>
+      <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap">
+        <button class="nes-btn btn-gold" onclick="githubSignIn()">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" style="margin-right:4px">
+            <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.012 8.012 0 0 0 16 8c0-4.42-3.58-8-8-8z"/>
+          </svg>
+          SIGN IN WITH GITHUB
+        </button>
+        <button class="nes-btn btn-blue" onclick="continueAsGuest()">👤 CONTINUE AS GUEST</button>
+      </div>
+    </div>
+
+    <!-- Sync Banner -->
+    <div class="token-sync-banner">
+      <p>🌟 TOKENS SYNC WITH MARIO WORLD TOKENS ECOSYSTEM</p>
+      <a href="https://pewpi-infinity.github.io/Mario-World-Tokens/" target="_blank" rel="noopener" class="nes-btn btn-gold">
+        🚀 GO TO MARIO TOKENS
+      </a>
+      <button class="nes-btn btn-green" onclick="syncTokensToMario()">⚡ SYNC NOW</button>
+    </div>
+  </div>
+</div>
+
+<div class="pixel-divider">◆ ◇ ◆ ◇ ◆ ◇ ◆ ◇ ◆</div>
+
+<!-- ══════════════════════════════════════
+     COMMENTS
+══════════════════════════════════════ -->
+<div class="section" id="comments">
+  <h2 class="section-title"><span class="icon">💬</span> COMMENT SECTION</h2>
+  <div class="nes-panel">
+
+    <!-- Comment Form -->
+    <div class="comment-form" id="commentForm">
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px">
+        <input class="nes-input" id="commentName" type="text" placeholder="YOUR NAME / HANDLE" maxlength="32" />
+        <input class="nes-input" id="commentGame" type="text" placeholder="FAVORITE STAGE (optional)" maxlength="32" />
+      </div>
+      <textarea class="nes-input" id="commentText" placeholder="SHARE YOUR SOLOMON'S KEY MEMORIES, TIPS, OR HIGH SCORES!" maxlength="500"></textarea>
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px">
+        <span style="font-size:7px; color:var(--nes-gray); font-family:var(--mono-font)" id="charCount">0 / 500 CHARACTERS</span>
+        <button class="nes-btn btn-red" onclick="submitComment()">📤 POST COMMENT</button>
+      </div>
+    </div>
+
+    <!-- Comment List -->
+    <div class="comment-list" id="commentList">
+      <!-- Seeded comments -->
+    </div>
+  </div>
+</div>
+
+<div class="pixel-divider">◆ ◇ ◆ ◇ ◆ ◇ ◆ ◇ ◆</div>
+
+<!-- ══════════════════════════════════════
+     FOOTER
+══════════════════════════════════════ -->
+<footer>
+  <div class="footer-logo">🔑 SOLOMON'S KEY</div>
+  <div class="footer-links">
+    <a href="#emulator">🕹️ EMULATOR</a>
+    <a href="#history">📜 HISTORY</a>
+    <a href="#video">🎬 VIDEO</a>
+    <a href="#tokens">🪙 TOKENS</a>
+    <a href="#comments">💬 COMMENTS</a>
+    <a href="https://pewpi-infinity.github.io/Mario-World-Tokens/" target="_blank" rel="noopener">🌟 MARIO TOKENS</a>
+    <a href="https://github.com/pewpi-infinity/Solomons-Key" target="_blank" rel="noopener">⚙️ GITHUB</a>
+  </div>
+  <p class="footer-copy">
+    SOLOMON'S KEY © 1986 TECMO · NES EMULATOR POWERED BY RETROGAMES.CC · TOKENS POWERED BY MARIO WORLD TOKENS
+    <br/>BUILT WITH ❤️ FOR THE NES COMMUNITY · PEWPI-INFINITY
+  </p>
+</footer>
+
+</div><!-- .page-wrap -->
+
+<!-- Toast notification -->
+<div class="toast" id="toast">
+  <span id="toastIcon">🪙</span>
+  <span id="toastMsg">+1 TOKEN EARNED!</span>
+</div>
+
+<!-- ═══════════════════════════════════════
+     JAVASCRIPT
+═══════════════════════════════════════ -->
+<script>
+  // ─── STATE ───────────────────────────────
+  let state = {
+    coins: 0,
+    points: 0,
+    tokens: 0,
+    stage: 1,
+    user: null,
+    isGuest: false,
+  };
+
+  // Persistent BroadcastChannel for bidirectional token communication
+  let tokenChannel;
+  try {
+    tokenChannel = new BroadcastChannel('solomons_key_tokens');
+    tokenChannel.onmessage = (e) => {
+      if (e.data && e.data.type === 'mario_tokens_response') {
+        showToast('Mario Tokens synced!', '🌟');
+        addLog('[SYNC] Received confirmation from Mario World Tokens!', 'sync');
+      }
+    };
+  } catch(e) {
+    tokenChannel = { postMessage: () => {}, addEventListener: () => {}, removeEventListener: () => {} };
+  }
+
+  // Load from localStorage
+  function loadState() {
+    const saved = localStorage.getItem('solomons_key_state');
+    if (saved) {
+      try { Object.assign(state, JSON.parse(saved)); } catch(e) {}
+    }
+    updateHUD();
+  }
+
+  function saveState() {
+    localStorage.setItem('solomons_key_state', JSON.stringify(state));
+  }
+
+  function updateHUD() {
+    document.getElementById('hudCoins').textContent = state.coins;
+    document.getElementById('hudPoints').textContent = state.points;
+    document.getElementById('hudTokens').textContent = state.tokens;
+    document.getElementById('hudStage').textContent = state.stage;
+  }
+
+  // ─── TOKEN ACTIONS ────────────────────────
+  function addTokens(amount, source) {
+    state.tokens += amount;
+    state.points += amount * 100;
+    saveState();
+    updateHUD();
+    showToast(`🪙 +${amount} TOKEN${amount > 1 ? 'S' : ''}!`, '🪙');
+    addLog(`[EARNED] +${amount} tokens from: ${source}`, 'earn');
+    // Broadcast to other tabs/windows via the persistent channel
+    try {
+      tokenChannel.postMessage({ type: 'token_earned', amount, source, total: state.tokens });
+    } catch(e) {}
+  }
+
+  function simulateCoin() {
+    state.coins++;
+    addTokens(1, 'COIN COLLECTED');
+  }
+
+  function simulateStage() {
+    state.stage++;
+    addTokens(10, `STAGE ${state.stage - 1} CLEARED`);
+  }
+
+  function simulateSecret() {
+    addTokens(25, 'SECRET ROOM DISCOVERED');
+  }
+
+  function simulateBoss() {
+    addTokens(50, 'BOSS DEFEATED');
+  }
+
+  // ─── SYNC TO MARIO TOKENS ────────────────
+  function syncTokensToMario() {
+    const tokens = state.tokens;
+    if (tokens === 0) {
+      showToast('No tokens to sync yet!', '⚠️');
+      return;
+    }
+    addLog(`[SYNC] Syncing ${tokens} tokens to Mario World Tokens...`, 'sync');
+    // Open Mario World Tokens with token data as URL param
+    const url = `https://pewpi-infinity.github.io/Mario-World-Tokens/?from=solomons-key&tokens=${tokens}&coins=${state.coins}&points=${state.points}`;
+    window.open(url, 'mario_tokens', 'width=1200,height=800');
+    showToast(`Syncing ${tokens} tokens!`, '🌟');
+    // Reset only after BroadcastChannel confirmation, with a 10s fallback
+    let synced = false;
+    const onSyncConfirm = (e) => {
+      if (e.data && e.data.type === 'mario_tokens_response') {
+        synced = true;
+        resetAfterSync();
+      }
+    };
+    tokenChannel.addEventListener('message', onSyncConfirm);
+    setTimeout(() => {
+      tokenChannel.removeEventListener('message', onSyncConfirm);
+      if (!synced) resetAfterSync();
+    }, 10000);
+  }
+
+  function resetAfterSync() {
+    state.tokens = 0;
+    state.coins = 0;
+    state.points = 0;
+    saveState();
+    updateHUD();
+    addLog('[SYNC] Tokens synced! Counter reset.', 'sync');
+
+  // ─── GITHUB SIGN-IN ──────────────────────
+  // NOTE: This is a demo sign-in flow. A real implementation would require
+  // a backend OAuth 2.0 server with CSRF state parameter validation.
+  function githubSignIn() {
+    const repoUrl = 'https://github.com/login';
+    const popup = window.open(repoUrl, 'github_login', 'width=600,height=700');
+    showToast('Opening GitHub login...', '🔐');
+    // Poll for popup close — user must complete login on GitHub side
+    const check = setInterval(() => {
+      if (popup && popup.closed) {
+        clearInterval(check);
+        // After popup closes, prompt for the player name (demo only)
+        const playerName = prompt('Enter your GitHub username to confirm sign-in (demo):') || 'Player';
+        const safe = escapeHTML(playerName.substring(0, 32));
+        state.user = { name: safe };
+        document.getElementById('githubSignin').innerHTML = `
+          <p>✅ SIGNED IN AS <strong style="color:var(--nes-gold)">${safe}</strong></p>
+          <p style="font-size:14px;color:var(--nes-gray)">Tokens saved locally. For full persistence, connect a backend OAuth service.</p>
+          <button class="nes-btn btn-blue" onclick="signOut()">🚪 SIGN OUT</button>
+        `;
+        addLog('[AUTH] Signed in as ' + safe, 'sync');
+      }
+    }, 500);
+  }
+
+  function continueAsGuest() {
+    state.isGuest = true;
+    document.getElementById('githubSignin').style.display = 'none';
+    addLog('[AUTH] Continuing as guest — tokens saved locally.', 'sync');
+    showToast('Playing as Guest!', '👤');
+  }
+
+  function signOut() {
+    state.user = null;
+    state.isGuest = false;
+    document.getElementById('githubSignin').style.display = 'block';
+    addLog('[AUTH] Signed out.', 'sync');
+  }
+
+  // ─── VIDEO PLAYER ────────────────────────
+  // Using YouTube search queries for different content types
+  const VIDEO_URLS = {
+    gameplay: 'https://www.youtube.com/embed?listType=search&q=Solomon+Key+NES+gameplay',
+    review:   'https://www.youtube.com/embed?listType=search&q=Solomon+Key+NES+review+retro',
+    speedrun: 'https://www.youtube.com/embed?listType=search&q=Solomon+Key+NES+speedrun',
+  };
+  function loadVideo(type) {
+    const frame = document.getElementById('videoFrame');
+    frame.src = VIDEO_URLS[type] || VIDEO_URLS.gameplay;
+  }
+
+  // ─── TOKEN LOG ───────────────────────────
+  function addLog(msg, cls = '') {
+    const log = document.getElementById('tokenLog');
+    const now = new Date();
+    const time = now.toLocaleTimeString('en', { hour12: false });
+    const el = document.createElement('div');
+    el.className = 'log-entry ' + cls;
+    el.textContent = `[${time}] ${msg}`;
+    log.appendChild(el);
+    log.scrollTop = log.scrollHeight;
+  }
+
+  // ─── TOAST ───────────────────────────────
+  let toastTimer;
+  function showToast(msg, icon = '🪙') {
+    const toast = document.getElementById('toast');
+    document.getElementById('toastMsg').textContent = msg;
+    document.getElementById('toastIcon').textContent = icon;
+    toast.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toast.classList.remove('show'), 2500);
+  }
+
+  // ─── HAMBURGER MENU ──────────────────────
+  const hamburgerBtn = document.getElementById('hamburgerBtn');
+  const mobileMenu   = document.getElementById('mobileMenu');
+  const mobileOverlay = document.getElementById('mobileOverlay');
+  const mobileMenuClose = document.getElementById('mobileMenuClose');
+
+  hamburgerBtn.addEventListener('click', () => {
+    hamburgerBtn.classList.toggle('open');
+    mobileMenu.classList.toggle('show');
+    mobileOverlay.classList.toggle('show');
+    const isOpen = mobileMenu.classList.contains('show');
+    document.body.style.overflow = isOpen ? 'hidden' : '';
+    if (isOpen) {
+      // Move focus into menu for keyboard accessibility
+      const firstLink = mobileMenu.querySelector('a, button');
+      if (firstLink) firstLink.focus();
+    } else {
+      hamburgerBtn.focus();
+    }
+  });
+
+  // Focus trap inside mobile menu
+  mobileMenu.addEventListener('keydown', (e) => {
+    if (!mobileMenu.classList.contains('show')) return;
+    if (e.key === 'Escape') { closeMenu(); return; }
+    if (e.key !== 'Tab') return;
+    const focusable = Array.from(mobileMenu.querySelectorAll('a, button'));
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault(); last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault(); first.focus();
+    }
+  });
+
+  function closeMenu() {
+    hamburgerBtn.classList.remove('open');
+    mobileMenu.classList.remove('show');
+    mobileOverlay.classList.remove('show');
+    document.body.style.overflow = '';
+  }
+
+  mobileMenuClose.addEventListener('click', closeMenu);
+  mobileOverlay.addEventListener('click', closeMenu);
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeMenu(); });
+  document.querySelectorAll('.menu-link').forEach(link => {
+    link.addEventListener('click', closeMenu);
+  });
+
+  // ─── COMMENTS ────────────────────────────
+  const SEED_COMMENTS = [
+    { name: 'RetroGamer86', stage: 'Stage 13 - The Demon Room', text: 'This game was my childhood! I remember spending hours trying to beat Stage 13. The block mechanics are still genius even by today\'s standards.', time: '2 days ago', likes: 24 },
+    { name: 'NintendoNerd', stage: 'Stage 31 - Secret Area', text: 'Pro tip: When you see a fairy, don\'t destroy the block above it immediately. Wait for the right moment and you unlock a secret room! Found this out after 20 years lol 😂', time: '5 days ago', likes: 47 },
+    { name: 'TecmoFan', stage: 'All stages', text: 'Just synced 250 tokens to Mario World Tokens! The integration is amazing. Love that every game in the ecosystem rewards you. #MarioTokens', time: '1 week ago', likes: 31 },
+    { name: 'PixelPrincess', stage: 'Stage 50 - Final Boss', text: 'Finally beat the game after 3 months of trying! The token system kept me motivated. 🏆 Total tokens earned: 847. Time to sync to Mario World!', time: '2 weeks ago', likes: 58 },
+  ];
+
+  function renderSeededComments() {
+    const list = document.getElementById('commentList');
+    SEED_COMMENTS.forEach((c, i) => {
+      list.innerHTML += buildCommentHTML(c, 'seed-' + i);
+    });
+  }
+
+  function buildCommentHTML(c, id) {
+    const initials = c.name.substring(0,2).toUpperCase();
+    const colors = ['#e60012','#0066cc','#2ecc40','#f5c518','#1a9edb'];
+    const color = colors[Math.floor(Math.random() * colors.length)];
+    return `
+      <div class="comment-card" id="comment-${id}">
+        <div class="comment-header">
+          <div class="comment-avatar" style="background:${color}">${initials}</div>
+          <div>
+            <div class="comment-name">${escapeHTML(c.name)}</div>
+            <div class="comment-stage">${escapeHTML(c.stage)}</div>
+          </div>
+          <div class="comment-time">${c.time}</div>
+        </div>
+        <div class="comment-body">${escapeHTML(c.text)}</div>
+        <div class="comment-likes">
+          <button class="like-btn" onclick="likeComment('${id}', this)">👍 <span class="lc">${c.likes}</span></button>
+          <button class="like-btn" onclick="replyComment('${id}')">💬 REPLY</button>
+        </div>
+      </div>
+    `;
+  }
+
+  function likeComment(id, btn) {
+    btn.classList.toggle('liked');
+    const span = btn.querySelector('.lc');
+    let n = parseInt(span.textContent);
+    span.textContent = btn.classList.contains('liked') ? n + 1 : n - 1;
+  }
+
+  function replyComment(id) {
+    document.getElementById('commentText').focus();
+    document.getElementById('commentText').placeholder = `Replying to comment... (type your reply)`;
+  }
+
+  function submitComment() {
+    const name = document.getElementById('commentName').value.trim();
+    const text = document.getElementById('commentText').value.trim();
+    const stage = document.getElementById('commentGame').value.trim();
+    if (!name) { showToast('Please enter your name!', '⚠️'); return; }
+    if (!text) { showToast('Please write a comment!', '⚠️'); return; }
+
+    const now = new Date();
+    const comment = {
+      name,
+      text,
+      stage: stage || 'Solomon\'s Key',
+      time: 'Just now',
+      likes: 0,
+    };
+
+    const id = 'user-' + Date.now();
+    const list = document.getElementById('commentList');
+    const div = document.createElement('div');
+    div.innerHTML = buildCommentHTML(comment, id);
+    list.prepend(div.firstElementChild);
+
+    // Reset form
+    document.getElementById('commentName').value = '';
+    document.getElementById('commentText').value = '';
+    document.getElementById('commentGame').value = '';
+    document.getElementById('charCount').textContent = '0 / 500 CHARACTERS';
+
+    showToast('Comment posted!', '💬');
+    addLog('[COMMENT] New comment posted by ' + name, 'sync');
+
+    // Save to localStorage
+    saveComments();
+  }
+
+  function saveComments() {
+    const cards = document.querySelectorAll('.comment-card[id^="user-"]');
+    const data = [];
+    cards.forEach(card => {
+      data.push({
+        name: card.querySelector('.comment-name')?.textContent || '',
+        text: card.querySelector('.comment-body')?.textContent || '',
+        stage: card.querySelector('.comment-stage')?.textContent || '',
+        time: card.querySelector('.comment-time')?.textContent || '',
+        likes: parseInt(card.querySelector('.lc')?.textContent || '0'),
+      });
+    });
+    localStorage.setItem('solomons_key_comments', JSON.stringify(data));
+  }
+
+  function loadSavedComments() {
+    const saved = localStorage.getItem('solomons_key_comments');
+    if (!saved) return;
+    try {
+      const comments = JSON.parse(saved);
+      const list = document.getElementById('commentList');
+      comments.forEach((c, i) => {
+        const id = 'saved-' + i;
+        const div = document.createElement('div');
+        div.innerHTML = buildCommentHTML(c, id);
+        list.appendChild(div.firstElementChild);
+      });
+    } catch(e) {}
+  }
+
+  function escapeHTML(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+  // Character count
+  document.getElementById('commentText').addEventListener('input', function() {
+    const len = this.value.length;
+    document.getElementById('charCount').textContent = `${len} / 500 CHARACTERS`;
+    if (len > 450) document.getElementById('charCount').style.color = 'var(--nes-red)';
+    else document.getElementById('charCount').style.color = 'var(--nes-gray)';
+  });
+
+  // ─── INIT ────────────────────────────────
+  window.addEventListener('DOMContentLoaded', () => {
+    loadState();
+    renderSeededComments();
+    loadSavedComments();
+    addLog('[SYSTEM] Solomon\'s Key loaded. Welcome to the temple!');
+    addLog('[TOKEN] Your tokens: ' + state.tokens + ' | Coins: ' + state.coins);
+  });
+
+</script>
+
+</body>
+</html>
